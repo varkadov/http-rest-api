@@ -3,6 +3,7 @@ package apiserver
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/gorilla/sessions"
 	"github.com/stretchr/testify/assert"
 	"github.com/varkadov/http-rest-api.git/internal/model"
 	"github.com/varkadov/http-rest-api.git/internal/store/teststore"
@@ -12,6 +13,8 @@ import (
 )
 
 func TestServer_HandleUsersCreate(t *testing.T) {
+	s := newServer(teststore.New(), sessions.NewCookieStore([]byte("Secret")))
+
 	testCases := []struct {
 		name         string
 		payload      interface{}
@@ -55,7 +58,6 @@ func TestServer_HandleUsersCreate(t *testing.T) {
 			_ = json.NewEncoder(b).Encode(tc.payload)
 			req, _ := http.NewRequest(http.MethodPost, "/users", b)
 
-			s := newServer(teststore.New())
 			s.ServeHTTP(rec, req)
 
 			assert.Equal(t, rec.Code, tc.expectedCode)
@@ -67,7 +69,7 @@ func TestServer_SessionsCreate(t *testing.T) {
 	u := model.TestUser(t)
 	store := teststore.New()
 	_ = store.User().Create(u)
-	s := newServer(store)
+	s := newServer(store, sessions.NewCookieStore([]byte("secret")))
 
 	testCases := []struct {
 		name         string
