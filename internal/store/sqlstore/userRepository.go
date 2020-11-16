@@ -30,6 +30,25 @@ func (r *UserRepository) Create(u *model.User) error {
 	).Scan(&u.ID)
 }
 
+func (r *UserRepository) Find(id int) (*model.User, error) {
+	u := &model.User{}
+
+	err := r.store.db.QueryRow(
+		"SELECT id, email FROM users where id = $1",
+		id,
+	).Scan(&u.ID, &u.Email)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, store.ErrRecordNotFound
+		}
+
+		return nil, err
+	}
+
+	return u, nil
+}
+
 func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
 	u := &model.User{}
 
