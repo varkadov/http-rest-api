@@ -12,6 +12,7 @@ import (
 	"github.com/varkadov/http-rest-api.git/internal/model"
 	"github.com/varkadov/http-rest-api.git/internal/store"
 	"net/http"
+	"time"
 )
 
 const (
@@ -49,6 +50,7 @@ func newServer(store store.Store, sessionStore sessions.Store) *server {
 
 func (s *server) configureRouter() {
 	s.router.Use(s.setRequestId)
+	s.router.Use(s.logRequest)
 	s.router.Use(handlers.CORS(handlers.AllowedOrigins([]string{"*"})))
 	s.router.HandleFunc("/users", s.handleUsersCreate()).Methods("POST")
 	s.router.HandleFunc("/sessions", s.handleSessionsCreate()).Methods("POST")
@@ -93,6 +95,26 @@ func (s *server) setRequestId(next http.Handler) http.Handler {
 		id := uuid.New().String()
 		w.Header().Set("X-Request_ID", id)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKeyRequestId, id)))
+	})
+}
+
+func (s *server) logRequest(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger := s.logger.WithFields(logrus.Fields{
+			"remote_addr": r.RemoteAddr,
+			"request_id":  r.Context().Value(ctxKeyRequestId),
+		})
+
+		logger.Infof("started %s %s", r.Method, r.RequestURI)
+
+		start := time.Now()
+
+		// NOTE !!!
+		rw := &responseWrite{w, http.StatusOK}
+
+		next.ServeHTTP(rw, r)
+
+		logger.Infof("completed with %d %s in %v", rw.code, http.StatusText(rw.code), time.Now().Sub(start))
 	})
 }
 
